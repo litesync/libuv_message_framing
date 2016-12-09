@@ -6,8 +6,6 @@ uv_loop_t *client_loop;
 
 uv_async_t async_next_step;
 
-uv_tcp_t  *sendersocket;
-
 #define CONNECTION_PORT 7357
 #define DEFAULT_BACKLOG 16
 #define DEFAULT_UV_SUGGESTED_SIZE 65536
@@ -59,8 +57,9 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
    printf("msg_received called. size=%d\n", size);
 
    if (size < 0) {
-      if (size != UV_EOF)
-         fprintf(stderr, "Read error %s\n", uv_err_name(size));
+      if (size != UV_EOF) {
+         fprintf(stderr, "Read error: %s\n", uv_err_name(size));
+      }
       uv_close((uv_handle_t*) client, NULL);
       return;
    }
@@ -81,11 +80,11 @@ void on_new_connection(uv_stream_t *server, int status) {
       return;
    }
 
-   uv_tcp_t *client = (uv_tcp_t*) malloc(sizeof(uv_tcp_t));
-   uv_tcp_init(server_loop, client);
+   uv_msg_t *client = malloc(sizeof(uv_msg_t));
+   uv_msg_init(server_loop, client, UV_TCP);
 
    if (uv_accept(server, (uv_stream_t*) client) == 0) {
-      uv_msg_read_start((uv_stream_t*) client, alloc_buffer, on_msg_received, free_buffer);
+      uv_msg_read_start(client, alloc_buffer, on_msg_received, free_buffer);
    } else {
       uv_close((uv_handle_t*) client, NULL);
    }
@@ -114,6 +113,8 @@ void reader_start(void *arg) {
 }
 
 /* Writer ********************************************************************/
+
+uv_msg_t  *sendersocket;
 
 typedef struct {
     uv_write_t req;
@@ -174,15 +175,15 @@ int main() {
 
    client_loop = uv_default_loop();
 
-   sendersocket = malloc(sizeof(uv_tcp_t));
-   uv_tcp_init(client_loop, sendersocket);
+   sendersocket = malloc(sizeof(uv_msg_t));
+   uv_msg_init(client_loop, sendersocket, UV_TCP);
 
    uv_connect_t* connect = malloc(sizeof(uv_connect_t));
 
    struct sockaddr_in dest;
    uv_ip4_addr("127.0.0.1", CONNECTION_PORT, &dest);
 
-   rc = uv_tcp_connect(connect, sendersocket, (const struct sockaddr*)&dest, on_connect);
+   rc = uv_tcp_connect(connect, (uv_tcp_t*)sendersocket, (const struct sockaddr*)&dest, on_connect);
    if (rc) {
       fprintf(stderr, "Connect error %s\n", uv_strerror(rc));
       return 1;
