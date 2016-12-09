@@ -199,17 +199,9 @@ int main() {
 /*****************************************************************************/
 
 int get_msg_size(void *msg) {
-  int *pint;
-
-  pint = (int*) msg;
+  int *pint = (int*) msg;
   assert(pint != 0);
-
-#ifdef NO_NETWORK_ORDER
-  return pint[0];
-#else
   return ntohl(pint[0]);
-#endif
-
 }
 
 void check_msg(char *base, int size, char letter) {
@@ -233,11 +225,7 @@ void create_test_msg(void *base, int size, char letter) {
 
   pint = (int*) base;
   assert(pint != 0);
-#ifdef NO_NETWORK_ORDER
-  pint[0] = size;
-#else
   pint[0] = htonl(size);
-#endif
 
   ptr = base;
   ptr +=  4;
@@ -389,7 +377,7 @@ void test_coalesced_and_fragmented_messages() {
 
    /* send more 52 bytes. the remaining 50 bytes from the second message + 2 bytes length from the third */
    next_chunk_size = 52;
-   alloc_call_expected = 1;
+   alloc_call_expected = 0;
    expected_suggested_size = DEFAULT_UV_SUGGESTED_SIZE;
    next_alloc_size = 4;
    recvd_call_expected = 1;

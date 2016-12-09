@@ -58,11 +58,17 @@ int uv_msg_send(uv_msg_write_t *req, uv_stream_t* stream, void *msg, int size, u
 
 /* Message Reading ***********************************************************/
 
+int uv_stream_msg_free_buffer(uv_msg_t *uvmsg) {
+   if( uvmsg->free_cb ) uvmsg->free_cb((uv_handle_t*)uvmsg, uvmsg->buf);
+   uvmsg->buf = 0;
+   uvmsg->alloc_size = 0;
+}
+
 int uv_stream_msg_realloc(uv_handle_t *handle, size_t suggested_size) {
    uv_msg_t *uvmsg = (uv_msg_t*) handle;
    uv_buf_t buf = {0};
-   uvmsg->alloc_cb(handle, suggested_size, &buf);  // here the suggested size is exactly what it needs to read the message
-   if( buf.base==0 || buf.len < suggested_size ) return 0;  // if buf.len < suggested_size and buf.base is valid it will be lost here (the allocated memory)
+   uvmsg->alloc_cb(handle, suggested_size, &buf);
+   if( buf.base==0 || buf.len < suggested_size ) return 0;  //! if buf.len < suggested_size and buf.base is valid it will be lost here (the allocated memory)
    memcpy(buf.base, uvmsg->buf, uvmsg->filled);
    if( uvmsg->free_cb ) uvmsg->free_cb(handle, uvmsg->buf);
    uvmsg->buf = buf.base;
@@ -87,14 +93,11 @@ void uv_stream_msg_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *s
    UVTRACE(("stream_msg_alloc  uvmsg->buf=%p  filled=%d\n", uvmsg->buf, uvmsg->filled));
 
    if( uvmsg->filled >= 4 ){
-#ifdef NO_NETWORK_ORDER
-      int msg_size = *(int*)uvmsg->buf;
-#else
       int msg_size = ntohl(*(int*)uvmsg->buf);
-#endif
-      UVTRACE(("stream_msg_alloc  msg_size=%d\n", msg_size));
       int entire_msg_size = msg_size + 4;
+      UVTRACE(("stream_msg_alloc  msg_size=%d\n", msg_size));
       if( uvmsg->alloc_size < entire_msg_size ){
+         /* here the suggested size is exactly what it's needed to read the entire message */
          if( !uv_stream_msg_realloc(handle, entire_msg_size) ){
             stream_buf->base = 0;
             return;
@@ -103,7 +106,7 @@ void uv_stream_msg_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *s
       stream_buf->len = entire_msg_size - uvmsg->filled;
    } else {
       if( uvmsg->alloc_size < 4 ){
-         /* There is no enough space for the message size */
+         /* There is no enough space for the message length. Allocate the default size */
          UVTRACE(("calling realloc - alloc_size: %d, filled: %d\n", uvmsg->alloc_size, uvmsg->filled));
          if( !uv_stream_msg_realloc(handle, 64 * 1024) ){
             stream_buf->base = 0;
@@ -120,20 +123,22 @@ void uv_stream_msg_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *s
 void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
    uv_msg_t *uvmsg = (uv_msg_t*) stream;
 
-   UVTRACE(("process_messages: received %d bytes\n", nread));
-   UVTRACE(("uvmsg: %p  uvmsg->buf: %p  buf.base: %p\n", uvmsg, uvmsg->buf, buf->base));
+   UVTRACE(("uv_stream_msg_read: received %d bytes\n", nread));
+   UVTRACE(("uvmsg: %p  uvmsg->buf: %p  buf->base: %p\n", uvmsg, uvmsg->buf, buf->base));
 
-   if( uvmsg==0 ) return;
+   if (uvmsg == 0) return;
 
    if (nread == 0) {
       /* Nothing read */
-      // does it should release the ->buf here?
+      //! does it should release the ->buf here?
+      //uv_stream_msg_free_buffer(uvmsg);
       return;
    }
 
    if (nread < 0) {
-      // does it should release the ->buf here?
-      uvmsg->msg_read_cb(stream, 0, nread);
+      /* Error */
+      uv_stream_msg_free_buffer(uvmsg);
+      uvmsg->msg_read_cb(stream, NULL, nread);
       return;
    }
 
@@ -149,11 +154,7 @@ void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
    char *ptr = uvmsg->buf;
 
    while( uvmsg->filled >= 4 ){
-#ifdef NO_NETWORK_ORDER
-      int msg_size = *(int*)ptr;
-#else
       int msg_size = ntohl(*(int*)ptr);
-#endif
       int entire_msg = msg_size + 4;
       UVTRACE(("msg_size: %d, entire_msg: %d\n", msg_size, entire_msg));
       if( uvmsg->filled >= entire_msg ){
@@ -172,9 +173,7 @@ void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
       memmove(uvmsg->buf, ptr, uvmsg->filled);
    } else if( uvmsg->filled == 0 ){
       UVTRACE(("releasing the buffer\n"));
-      if( uvmsg->free_cb ) uvmsg->free_cb((uv_handle_t*)stream, uvmsg->buf);
-      uvmsg->buf = 0;
-      uvmsg->alloc_size = 0;
+      uv_stream_msg_free_buffer(uvmsg);
    }
 
 #ifdef TESTING_UV_MSG_FRAMING
