@@ -9,7 +9,6 @@
 
 int received=0;
 
-
 void on_write_complete(uv_write_t *req, int status) {
 
    if ( status < 0 ) {
@@ -45,8 +44,9 @@ void free_buffer(uv_handle_t* handle, void* ptr) {
 void on_msg_received(uv_stream_t *client, void *msg, int size) {
 
    if (size < 0) {
-      if (size != UV_EOF)
-         fprintf(stderr, "Read error %s\n", uv_err_name(size));
+      if (size != UV_EOF) {
+         fprintf(stderr, "Read error: %s\n", uv_err_name(size));
+      }
       uv_close((uv_handle_t*) client, NULL);
       return;
    }
@@ -62,14 +62,12 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
 }
 
 void on_connect(uv_connect_t *connect, int status) {
-   uv_stream_t* socket;
+   uv_stream_t* socket = connect->handle;
 
    if (status < 0) {
-      fprintf(stderr, "New connection error %s\n", uv_strerror(status));
+      fprintf(stderr, "Connection error: %s\n", uv_strerror(status));
       return;
    }
-
-   socket = connect->handle;
 
    uv_msg_read_start((uv_msg_t*) socket, alloc_buffer, on_msg_received, free_buffer);
 
