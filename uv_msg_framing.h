@@ -1,5 +1,8 @@
 #ifndef UV_MSG_FRAMING_H
 #define UV_MSG_FRAMING_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <uv.h>
 
@@ -43,4 +46,7 @@ typedef struct {
 } msg_write_req_t;
 
 
+#ifdef __cplusplus
+}
+#endif
 #endif  // UV_MSG_FRAMING_H
