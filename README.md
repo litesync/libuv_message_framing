@@ -1,6 +1,6 @@
 # libuv_message_framing
 
-Message-based communication for libuv.
+Message-based communication for libuv
 
 This code implements length-prefixed message framing on top of streams.
 
@@ -9,9 +9,9 @@ It is expected to work with TCP, Unix domain sockets (Linux) and Named Pipes (Wi
 
 ## *** DRAFT ***
 
-This code is experimental and the interface can be modified
+This code is experimental and the interface can be modified.
 
-There is another implementation on the branch 'basic' that can be used on any stream without the initialization bellow but does not deal with handle closing
+There is another implementation on the branch 'basic' that can be used on any stream without the initialization bellow but does not deal with handle closing.
 
 
 ## Usage
@@ -51,17 +51,17 @@ gcc example.c -llibuv -lws2_32
 ## Testing
 
 ### On Linux
-
+```
 cd test
 gcc test.c -o test -luv
-test
-
+./test
+```
 ### On Windows
-
+```
 cd test
 gcc test.c -o test -llibuv -lws2_32
 test
-
+```
 
 ## TO DO
 
