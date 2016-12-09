@@ -7,42 +7,51 @@
 #endif
 
 
-/* Message Writting **********************************************************/
+/* Stream Initialization *****************************************************/
 
+int uv_msg_init(uv_loop_t* loop, uv_msg_t* handle, int stream_type) {
+   int rc;
 
-void uv_msg_send_completed(uv_write_t *req, int status) {
-   msg_write_req_t *msg_req = (msg_write_req_t*) req;
-
-   UVTRACE(("send completed: %s\n", msg_req->buf[1].base));
-
-   if ( msg_req->msg_write_cb ) {
-      msg_req->msg_write_cb(msg_req->preq, status);
+   switch( stream_type ){
+   case UV_TCP:
+      rc = uv_tcp_init(loop, (uv_tcp_t*) handle);
+      break;
+   case UV_NAMED_PIPE:
+      rc = uv_pipe_init(loop, (uv_pipe_t*) handle, 0);
+      break;
+   default:
+      return UV_EINVAL;
    }
 
-   free(msg_req);
+   if( rc ) return rc;
+
+   handle->buf = NULL;
+   handle->alloc_size = 0;
+   handle->filled = 0;
+   handle->alloc_cb = NULL;
+   handle->free_cb = NULL;
+   handle->msg_read_cb = NULL;
+   /* initialize the public member */
+   handle->data = NULL;
+
+   return 0;
 }
 
-int uv_msg_send(uv_write_t *req, uv_stream_t* stream, void *msg, int size, uv_msg_write_cb msg_write_cb) {
+
+/* Message Writting **********************************************************/
+
+int uv_msg_send(uv_msg_write_t *req, uv_stream_t* stream, void *msg, int size, uv_write_cb write_cb) {
 
    if ( !req || !stream || !msg || size <= 0 ) return UV_EINVAL;
 
    UVTRACE(("sending message: %s\n", msg));
 
-   msg_write_req_t *msg_req = malloc(sizeof(msg_write_req_t));
-   if ( !msg_req ) return UV_ENOBUFS;
+   req->msg_size = htonl(size);
+   req->buf[0].base = (char*) &req->msg_size;
+   req->buf[0].len = 4;
+   req->buf[1] = uv_buf_init(msg, size);
 
-   memcpy(&msg_req->req, req, sizeof(uv_write_t));
-   msg_req->preq = req;  //  -- this is not required if we don't require the user to allocate the request.
-
-   msg_req->msg_size = htonl(size);
-   msg_req->buf[0].base = (char*) &msg_req->msg_size;
-   msg_req->buf[0].len = 4;
-
-   msg_req->buf[1] = uv_buf_init(msg, size);
-
-   msg_req->msg_write_cb = msg_write_cb;
-
-   return uv_write((uv_write_t*) msg_req, stream, &msg_req->buf[0], 2, uv_msg_send_completed);
+   return uv_write((uv_write_t*) req, stream, &req->buf[0], 2, write_cb);
 
 }
 
@@ -50,7 +59,7 @@ int uv_msg_send(uv_write_t *req, uv_stream_t* stream, void *msg, int size, uv_ms
 /* Message Reading ***********************************************************/
 
 int uv_stream_msg_realloc(uv_handle_t *handle, size_t suggested_size) {
-   msg_buf_t *msg_buf = handle->data;
+   uv_msg_t *msg_buf = (uv_msg_t*) handle;
    uv_buf_t buf = {0};
    msg_buf->alloc_cb(handle, suggested_size, &buf);  // here the suggested size is exactly what it needs to read the message
    if( buf.base==0 || buf.len < suggested_size ) return 0;  // if buf.len < suggested_size and buf.base is valid it will be lost here (the allocated memory)
@@ -62,7 +71,7 @@ int uv_stream_msg_realloc(uv_handle_t *handle, size_t suggested_size) {
 }
 
 void uv_stream_msg_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *stream_buf) {
-   msg_buf_t *msg_buf = handle->data;
+   uv_msg_t *msg_buf = (uv_msg_t*) handle;
 
    UVTRACE(("stream_msg_alloc  msg_buf=%p\n", msg_buf));
    if( msg_buf==0 ) return;
@@ -109,7 +118,7 @@ void uv_stream_msg_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *s
 }
 
 void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
-   msg_buf_t *msg_buf = stream->data;
+   uv_msg_t *msg_buf = (uv_msg_t*) stream;
 
    UVTRACE(("process_messages: received %d bytes\n", nread));
    UVTRACE(("msg_buf: %p  msg_buf->buf: %p  buf.base: %p\n", msg_buf, msg_buf->buf, buf->base));
@@ -173,21 +182,12 @@ void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 #endif
 }
 
-int uv_msg_read_start(uv_stream_t* stream, uv_alloc_cb alloc_cb, uv_msg_read_cb msg_read_cb, uv_free_cb free_cb) {
+int uv_msg_read_start(uv_msg_t* stream, uv_alloc_cb alloc_cb, uv_msg_read_cb msg_read_cb, uv_free_cb free_cb) {
 
-   msg_buf_t *msg_buf;
-   msg_buf = malloc(sizeof(msg_buf_t));
-   if( msg_buf==0 ) return UV_ENOBUFS;
-   memset(msg_buf, 0, sizeof(msg_buf_t));
+   stream->msg_read_cb = msg_read_cb;
+   stream->alloc_cb = alloc_cb;
+   stream->free_cb = free_cb;
 
-   msg_buf->msg_read_cb = msg_read_cb;
-   msg_buf->alloc_cb = alloc_cb;
-   msg_buf->free_cb = free_cb;
-
-   UVTRACE(("previous stream->data=%p\n", stream->data));
-
-   stream->data = msg_buf;
-
-   return uv_read_start(stream, uv_stream_msg_alloc, uv_stream_msg_read);
+   return uv_read_start((uv_stream_t*)stream, uv_stream_msg_alloc, uv_stream_msg_read);
 
 }

@@ -23,14 +23,13 @@ void on_write_complete(uv_write_t *req, int status) {
 
 }
 
-void send_message(uv_stream_t* stream, char *msg, int size, uv_msg_write_cb msg_write_cb) {
-   uv_write_t *req = malloc(sizeof(uv_write_t));
+void send_message(uv_stream_t* stream, char *msg, int size, uv_write_cb write_cb) {
+   uv_msg_write_t *req = malloc(sizeof(uv_msg_write_t));
 
-   msg = strdup(msg);
+   msg = strdup(msg); // make a copy of the data
+   req->data = msg;   // save the data pointer to release on completion
 
-   req->data = msg;  // save the data pointer to release on completion
-
-   uv_msg_send(req, stream, msg, size, msg_write_cb);
+   uv_msg_send(req, stream, msg, size, write_cb);
 
 }
 
@@ -72,7 +71,7 @@ void on_connect(uv_connect_t *connect, int status) {
 
    socket = connect->handle;
 
-   uv_msg_read_start((uv_stream_t*) socket, alloc_buffer, on_msg_received, free_buffer);
+   uv_msg_read_start((uv_msg_t*) socket, alloc_buffer, on_msg_received, free_buffer);
 
    char *msg = "Hello World!";
    send_message(socket, msg, strlen(msg)+1, on_write_complete);
@@ -86,16 +85,16 @@ int main() {
    int rc;
    uv_loop_t *loop = uv_default_loop();
 
-   uv_tcp_t* socket = malloc(sizeof(uv_tcp_t));
-   uv_tcp_init(loop, socket);
+   uv_msg_t* socket = malloc(sizeof(uv_msg_t));
+   rc = uv_msg_init(loop, socket, UV_TCP);
 
    struct sockaddr_in dest;
    uv_ip4_addr("127.0.0.1", DEFAULT_PORT, &dest);
 
    uv_connect_t* connect = malloc(sizeof(uv_connect_t));
-   rc = uv_tcp_connect(connect, socket, (const struct sockaddr*)&dest, on_connect);
+   rc = uv_tcp_connect(connect, (uv_tcp_t*)socket, (const struct sockaddr*)&dest, on_connect);
    if (rc) {
-      fprintf(stderr, "Connect error %s\n", uv_strerror(rc));
+      fprintf(stderr, "Connect error: %s\n", uv_strerror(rc));
       return 1;
    }
 
