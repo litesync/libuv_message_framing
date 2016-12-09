@@ -1,5 +1,6 @@
 /*
-** This example code must be run with the tcp-echo-server.c running
+** This example code must be run with the tcp-echo-server running
+** https://github.com/nikhilm/uvbook/blob/master/code/tcp-echo-server/main.c
 */
 #include <uv.h>
 #include "uv_msg_framing.c"
@@ -84,14 +85,14 @@ void on_connect(uv_connect_t *connect, int status) {
 int main() {
    int rc;
    uv_loop_t *loop = uv_default_loop();
+
    uv_tcp_t* socket = malloc(sizeof(uv_tcp_t));
    uv_tcp_init(loop, socket);
-
-   uv_connect_t* connect = malloc(sizeof(uv_connect_t));
 
    struct sockaddr_in dest;
    uv_ip4_addr("127.0.0.1", DEFAULT_PORT, &dest);
 
+   uv_connect_t* connect = malloc(sizeof(uv_connect_t));
    rc = uv_tcp_connect(connect, socket, (const struct sockaddr*)&dest, on_connect);
    if (rc) {
       fprintf(stderr, "Connect error %s\n", uv_strerror(rc));

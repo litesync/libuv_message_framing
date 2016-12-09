@@ -128,9 +128,8 @@ void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
       return;
    }
 
-   assert(buf->base == msg_buf->buf + msg_buf->filled);
-
 #ifdef TESTING_UV_MSG_FRAMING
+   assert(buf->base == msg_buf->buf + msg_buf->filled);
    print_bytes("received", buf->base, nread);
 #endif
 
