@@ -8,6 +8,7 @@ uv_loop_t *server_loop;
 uv_loop_t *client_loop;
 
 uv_async_t async_next_step;
+uv_timer_t timer;
 
 #define CONNECTION_PORT 7357
 #define DEFAULT_BACKLOG 16
@@ -21,6 +22,7 @@ int alloc_called;
 int recvd_called;
 int free_called;
 int next_msg_letter;
+int waiting_reader;
 
 void print_bytes(char *oper, unsigned char *data, int size) {
    int i;
@@ -156,13 +158,33 @@ void on_connect(uv_connect_t *connect, int status) {
 
 void go_to_next_step(uv_async_t *handle) {
 
+   if (waiting_reader != 1) {
+      puts("next step ---------------------------------------------------------- AGAIN --");
+      return;
+   }
+   waiting_reader = 0;
+
    puts("next step ----------------------------------------------------------------------");
 
+   /* exit from the first loop run */
+   uv_stop(client_loop);
+
+}
+
+void timer_cb() {
+
+   /* exit from the second loop run */
    uv_stop(client_loop);
 
 }
 
 void wait_reader() {
+
+   waiting_reader = 1;
+
+   uv_run(client_loop, UV_RUN_DEFAULT);
+
+   uv_timer_start(&timer, timer_cb, 50, 0);
 
    uv_run(client_loop, UV_RUN_DEFAULT);
 
@@ -193,6 +215,8 @@ int main() {
    }
 
    uv_async_init(client_loop, &async_next_step, go_to_next_step);
+
+   uv_timer_init(client_loop, &timer);
 
    uv_run(client_loop, UV_RUN_DEFAULT);
 
@@ -363,9 +387,9 @@ void test_coalesced_and_fragmented_messages() {
 
    /* send more 64 bytes. the remaining 10 bytes from the first message + 4 bytes length + 50 bytes for the second message */
    next_chunk_size = 64;
-   alloc_call_expected = 2; //!? only for the second message  -- if the second message is bigger, then it should call the alloc callback
+   alloc_call_expected = 2;   //!? only for the second message  -- if the second message is bigger, then it should call the alloc callback
    expected_suggested_size = DEFAULT_UV_SUGGESTED_SIZE;
-   next_alloc_size = 30;      //! if not enough buffer is supplied the another call may happen - new test case
+   next_alloc_size = 30;      //! if not enough buffer is supplied then another call may happen - new test case
    expected_suggested_size2 = entire_msg_size;
    next_alloc_size2 = entire_msg_size;
    recvd_call_expected = 1;

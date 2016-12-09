@@ -44,7 +44,7 @@ int uv_msg_send(uv_msg_write_t *req, uv_stream_t* stream, void *msg, int size, u
 
    if ( !req || !stream || !msg || size <= 0 ) return UV_EINVAL;
 
-   UVTRACE(("sending message: %s\n", msg));
+   UVTRACE(("sending message: %s\n", (char*)msg));
 
    req->msg_size = htonl(size);
    req->buf[0].base = (char*) &req->msg_size;
