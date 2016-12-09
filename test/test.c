@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
 #include <uv.h>
 #include <assert.h>
 
@@ -64,7 +67,7 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
       return;
    }
 
-   printf("new message here (%d bytes): %s\n", size, msg);
+   printf("new message here (%d bytes): %s\n", size, (char*)msg);
 
    check_msg(msg, size, next_msg_letter);
    next_msg_letter++;

@@ -2,6 +2,9 @@
 ** This example code must be run with the tcp-echo-server running
 ** https://github.com/nikhilm/uvbook/blob/master/code/tcp-echo-server/main.c
 */
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
 #include <uv.h>
 #include "uv_msg_framing.c"
 
@@ -51,7 +54,7 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
       return;
    }
 
-   printf("new message here (%d bytes): %s\n", size, msg);
+   printf("new message here (%d bytes): %s\n", size, (char*)msg);
 
    received++;
    if( received==2 ){
