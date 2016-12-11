@@ -20,19 +20,20 @@ void on_write_complete(uv_write_t *req, int status) {
       puts("message sent");
    }
 
+   /* release the message data */
    free(req->data);
-   free(req);
 
+   /* release the write request */
+   free(req);
 }
 
 void send_message(uv_stream_t* stream, char *msg, int size, uv_write_cb write_cb) {
    uv_msg_write_t *req = malloc(sizeof(uv_msg_write_t));
 
-   msg = strdup(msg); // make a copy of the data
-   req->data = msg;   // save the data pointer to release on completion
+   /* save the data pointer to release on completion */
+   req->data = msg;
 
    uv_msg_send(req, stream, msg, size, write_cb);
-
 }
 
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
@@ -58,7 +59,7 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
 
    received++;
    if( received==2 ){
-      char *msg = "Anooooooother one... :P";
+      char *msg = strdup("Anooooooother one... :P");
       send_message(client, msg, strlen(msg)+1, on_write_complete);
    }
 
@@ -66,6 +67,9 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
 
 void on_connect(uv_connect_t *connect, int status) {
    uv_stream_t* socket = connect->handle;
+   char *msg;
+
+   free(connect);
 
    if (status < 0) {
       fprintf(stderr, "Connection error: %s\n", uv_strerror(status));
@@ -74,10 +78,10 @@ void on_connect(uv_connect_t *connect, int status) {
 
    uv_msg_read_start((uv_msg_t*) socket, alloc_buffer, on_msg_received, free_buffer);
 
-   char *msg = "Hello World!";
+   msg = strdup("Hello World!");
    send_message(socket, msg, strlen(msg)+1, on_write_complete);
 
-   msg = "This is the second message";
+   msg = strdup("This is the second message");
    send_message(socket, msg, strlen(msg)+1, on_write_complete);
 
 }
