@@ -10,6 +10,10 @@ uv_loop_t *client_loop;
 uv_async_t async_next_step;
 uv_timer_t timer;
 
+uv_thread_t reader_thread;
+uv_async_t stop_reader;
+uv_barrier_t barrier;
+
 #define CONNECTION_PORT 7357
 #define DEFAULT_BACKLOG 16
 #define DEFAULT_UV_SUGGESTED_SIZE 65536
@@ -35,6 +39,18 @@ void print_bytes(char *oper, unsigned char *data, int size) {
 
 #define TESTING_UV_MSG_FRAMING
 #include "../uv_msg_framing.c"
+
+/* Common ********************************************************************/
+
+void on_close(uv_handle_t *handle) {
+   if (handle->type == UV_TCP) {
+      free(handle);
+   }
+}
+
+void on_walk(uv_handle_t *handle, void *arg) {
+   uv_close(handle, on_close);
+}
 
 /* Reader Thread *************************************************************/
 
@@ -65,7 +81,7 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
       if (size != UV_EOF) {
          fprintf(stderr, "Read error: %s\n", uv_err_name(size));
       }
-      uv_close((uv_handle_t*) client, NULL);
+      uv_close((uv_handle_t*) client, on_close);
       return;
    }
 
@@ -91,8 +107,12 @@ void on_new_connection(uv_stream_t *server, int status) {
    if (uv_accept(server, (uv_stream_t*) client) == 0) {
       uv_msg_read_start(client, alloc_buffer, on_msg_received, free_buffer);
    } else {
-      uv_close((uv_handle_t*) client, NULL);
+      uv_close((uv_handle_t*) client, on_close);
    }
+}
+
+void stop_reader_cb(uv_async_t *handle) {
+  uv_stop(server_loop);
 }
 
 void reader_start(void *arg) {
@@ -100,21 +120,33 @@ void reader_start(void *arg) {
    server_loop = malloc(sizeof(uv_loop_t));
    uv_loop_init(server_loop);
 
-   uv_tcp_t server;
-   uv_tcp_init(server_loop, &server);
+   uv_async_init(server_loop, &stop_reader, stop_reader_cb);
+
+   uv_tcp_t *server = malloc(sizeof(uv_tcp_t));
+   uv_tcp_init(server_loop, server);
 
    struct sockaddr_in addr;
    uv_ip4_addr("0.0.0.0", CONNECTION_PORT, &addr);
 
-   uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
+   uv_tcp_bind(server, (const struct sockaddr*)&addr, 0);
 
-   int r = uv_listen((uv_stream_t*) &server, DEFAULT_BACKLOG, on_new_connection);
+   int r = uv_listen((uv_stream_t*) server, DEFAULT_BACKLOG, on_new_connection);
    if (r) {
       fprintf(stderr, "Listen error %s\n", uv_strerror(r));
       return;
    }
 
+   /* signal to the main thread the the listening socket is ready */
+   uv_barrier_wait(&barrier);
+
    uv_run(server_loop, UV_RUN_DEFAULT);
+
+   /* cleanup */
+   puts("cleaning up reader thread");
+   uv_walk(server_loop, on_walk, NULL);
+   uv_run(server_loop, UV_RUN_DEFAULT);
+   uv_loop_close(server_loop);
+   free(server_loop);
 }
 
 /* Writer ********************************************************************/
@@ -192,11 +224,30 @@ void wait_reader() {
 
 /* Main **********************************************************************/
 
+void cleanup() {
+
+   /* cleanup */
+   puts("cleaning up main thread");
+   uv_async_send(&stop_reader);
+   uv_walk(client_loop, on_walk, NULL);
+   uv_run(client_loop, UV_RUN_DEFAULT);
+   uv_loop_close(client_loop);
+
+   uv_thread_join(&reader_thread);
+   uv_barrier_destroy(&barrier);
+   puts("done.");
+
+}
+
 int main() {
    int rc;
 
-   uv_thread_t reader_thread;
+   uv_barrier_init(&barrier, 2);
+
    uv_thread_create(&reader_thread, reader_start, NULL);
+
+   /* wait until the listening socket is ready on the reader thread */
+   uv_barrier_wait(&barrier);
 
    client_loop = uv_default_loop();
 
@@ -221,6 +272,9 @@ int main() {
    uv_run(client_loop, UV_RUN_DEFAULT);
 
    run_tests();
+
+   cleanup();
+
 }
 
 /*****************************************************************************/
@@ -236,13 +290,15 @@ void check_msg(char *base, int size, char letter) {
 
   puts("checking message content");
 
-  for(i=0; i < size; i++){
+  for(i=0; i < size-1; i++){
      assert(base[i] == letter);
      i++;
-     if( i < size ){
+     if( i < size-1 ){
         assert(base[i] == i % 256);
      }
   }
+
+  assert(base[size-1] == 0);
 
 }
 
@@ -257,13 +313,15 @@ void create_test_msg(void *base, int size, char letter) {
   ptr = base;
   ptr +=  4;
 
-  for(i=0; i < size; i++){
+  for(i=0; i < size-1; i++){
      ptr[i] = letter;
      i++;
-     if( i < size ){
+     if( i < size-1 ){
         ptr[i] = i % 256;
      }
   }
+
+  ptr[size-1] = 0; /* null terminator */
 
   assert(get_msg_size(base) == size);
 
@@ -511,6 +569,8 @@ void test_coalesced_and_fragmented_messages() {
 
    // test case: send more bytes than allocated
 
+
+   free(stream_buffer);
 
    puts("All tests PASS!");
 
