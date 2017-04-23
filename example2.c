@@ -7,36 +7,13 @@
 #include <memory.h>
 #include <uv.h>
 #include "uv_msg_framing.c"
+#include "uv_send_message.c"
 
 #define DEFAULT_PORT 7000
 
+void on_msg_sent(send_message_t *req, int status);
+
 /****************************************************************************/
-
-void send_message(uv_stream_t* stream, char *msg, int size, uv_write_cb write_cb) {
-   uv_msg_send_t *req = malloc(sizeof(uv_msg_send_t));
-
-   /* save the data pointer to release on completion */
-   req->data = msg;
-
-   uv_msg_send(req, stream, msg, size, write_cb);
-}
-
-void on_msg_sent(uv_write_t *req, int status) {
-
-   if ( status < 0 ) {
-      puts("message write failed");
-   } else {
-      puts("message sent");
-   }
-
-   /* release the message data */
-   free(req->data);
-
-   /* release the write request */
-   free(req);
-}
-
-/* buffer allocation and release. used with the message reading */
 
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
    buf->base = (char*) malloc(suggested_size);
@@ -60,8 +37,18 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
    printf("new message received (%d bytes): %s\n", size, (char*)msg);
 
    if (strcmp(msg, "Is it working?") == 0) {
-      char *response = strdup("Yeaaah!");
-      send_message(client, response, strlen(response)+1, on_msg_sent);
+      char *response = "Yeaaah!";
+      send_message(client, response, strlen(response)+1, UV_MSG_STATIC, on_msg_sent, 0);
+   }
+
+}
+
+void on_msg_sent(send_message_t *req, int status) {
+
+   if ( status < 0 ) {
+      printf("message send failed: %s   user_data: %d\n", (char*)req->msg, (int)req->data);
+   } else {
+      printf("message sent: %s   user_data: %d\n", (char*)req->msg, (int)req->data);
    }
 
 }
@@ -77,13 +64,32 @@ void on_connect(uv_connect_t *connect, int status) {
       return;
    }
 
+   /* we are connected! start the reading messages on this stream (asynchronously) */
+
    uv_msg_read_start((uv_msg_t*) socket, alloc_buffer, on_msg_received, free_buffer);
 
-   msg = strdup("Hello World!");
-   send_message(socket, msg, strlen(msg)+1, on_msg_sent);
+   /* now send some messages */
 
-   msg = strdup("Is it working?");
-   send_message(socket, msg, strlen(msg)+1, on_msg_sent);
+   msg = "Hello Mom!";
+   send_message(socket, msg, strlen(msg)+1, UV_MSG_STATIC, 0, 0);
+
+   msg = "Hello Dad!";
+   send_message(socket, msg, strlen(msg)+1, UV_MSG_TRANSIENT, 0, 0);
+
+   msg = strdup("Hello World!");
+   send_message(socket, msg, strlen(msg)+1, free, 0, 0);
+
+   msg = "Hello Mom!";
+   send_message(socket, msg, strlen(msg)+1, UV_MSG_STATIC, on_msg_sent, (void*)123);
+
+   msg = "Hello Dad!";
+   send_message(socket, msg, strlen(msg)+1, UV_MSG_TRANSIENT, on_msg_sent, (void*)124);
+
+   msg = strdup("Hello World!");
+   send_message(socket, msg, strlen(msg)+1, free, on_msg_sent, (void*)125);
+
+   msg = "Is it working?";
+   send_message(socket, msg, strlen(msg)+1, UV_MSG_STATIC, on_msg_sent, (void*)126);
 
 }
 

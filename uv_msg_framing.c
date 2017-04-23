@@ -40,7 +40,7 @@ int uv_msg_init(uv_loop_t* loop, uv_msg_t* handle, int stream_type) {
 
 /* Message Writting **********************************************************/
 
-int uv_msg_send(uv_msg_write_t *req, uv_stream_t* stream, void *msg, int size, uv_write_cb write_cb) {
+int uv_msg_send(uv_msg_send_t *req, uv_stream_t* stream, void *msg, int size, uv_write_cb write_cb) {
 
    if ( !req || !stream || !msg || size <= 0 ) return UV_EINVAL;
 
