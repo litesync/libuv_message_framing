@@ -2,12 +2,12 @@
    reserved for libuv, which does not handle memory management for requests.
    This module allocates and releases memory used for the requests. */
 
-#define UV_MSG_STATIC     (void*)0
-#define UV_MSG_TRANSIENT  (void*)1
+typedef void (*uv_free_fn) (void *ptr);
+#define UV_MSG_STATIC     ((uv_free_fn)0)
+#define UV_MSG_TRANSIENT  ((uv_free_fn)-1)
 
 typedef struct send_message_s send_message_t;
 
-typedef void (*uv_free_fn) (void *ptr);
 typedef void (*send_message_cb) (send_message_t *req, int status);
 
 struct send_message_s {
