@@ -40,6 +40,12 @@ int uv_msg_init(uv_loop_t* loop, uv_msg_t* handle, int stream_type) {
 
 /* Message Writting **********************************************************/
 
+#ifdef _WIN32
+static void uv_msg_sent(uv_write_t *req, int status) {
+   free(req);
+}
+#endif
+
 int uv_msg_send(uv_msg_send_t *req, uv_stream_t* stream, void *msg, int size, uv_write_cb write_cb) {
 
    if ( !req || !stream || !msg || size <= 0 ) return UV_EINVAL;
@@ -51,7 +57,20 @@ int uv_msg_send(uv_msg_send_t *req, uv_stream_t* stream, void *msg, int size, uv
    req->buf[0].len = 4;
    req->buf[1] = uv_buf_init(msg, size);
 
+#ifdef _WIN32
+   /* uv_write does not accept more than 1 buffer with Pipes on Windows
+      https://github.com/libuv/libuv/issues/794 */
+   {
+   int rc;
+   uv_msg_send_t *req1 = malloc(sizeof(uv_msg_send_t));
+   if (!req1) return UV_ENOMEM;
+   rc = uv_write((uv_write_t*) req1, stream, &req->buf[0], 1, uv_msg_sent);
+   if (rc) { free(req1); return rc; }
+   return uv_write((uv_write_t*) req, stream, &req->buf[1], 1, write_cb);
+   }
+#else
    return uv_write((uv_write_t*) req, stream, &req->buf[0], 2, write_cb);
+#endif
 
 }
 
