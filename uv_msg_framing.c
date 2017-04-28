@@ -60,17 +60,16 @@ int uv_msg_send(uv_msg_send_t *req, uv_stream_t* stream, void *msg, int size, uv
 #ifdef _WIN32
    /* uv_write does not accept more than 1 buffer with Pipes on Windows
       https://github.com/libuv/libuv/issues/794 */
-   {
-   int rc;
-   uv_msg_send_t *req1 = malloc(sizeof(uv_msg_send_t));
-   if (!req1) return UV_ENOMEM;
-   rc = uv_write((uv_write_t*) req1, stream, &req->buf[0], 1, uv_msg_sent);
-   if (rc) { free(req1); return rc; }
-   return uv_write((uv_write_t*) req, stream, &req->buf[1], 1, write_cb);
-   }
-#else
-   return uv_write((uv_write_t*) req, stream, &req->buf[0], 2, write_cb);
+   if (stream->type == UV_NAMED_PIPE) {
+     int rc;
+     uv_msg_send_t *req1 = malloc(sizeof(uv_msg_send_t));
+     if (!req1) return UV_ENOMEM;
+     rc = uv_write((uv_write_t*) req1, stream, &req->buf[0], 1, uv_msg_sent);
+     if (rc) { free(req1); return rc; }
+     return uv_write((uv_write_t*) req, stream, &req->buf[1], 1, write_cb);
+   } else
 #endif
+   return uv_write((uv_write_t*) req, stream, &req->buf[0], 2, write_cb);
 
 }
 
