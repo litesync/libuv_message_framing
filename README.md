@@ -1,5 +1,7 @@
 # libuv_message_framing
 
+[![Build Status](https://travis-ci.org/litesync/libuv_message_framing.svg?branch=master)](https://travis-ci.org/litesync/libuv_message_framing)
+
 Message-based communication for libuv
 
 This code implements length-prefixed message framing on top of streams.
