@@ -46,7 +46,8 @@ static void uv_msg_sent(uv_write_t *req, int status) {
 }
 #endif
 
-int uv_msg_send(uv_msg_send_t *req, uv_stream_t* stream, void *msg, int size, uv_write_cb write_cb) {
+int uv_msg_send(uv_msg_send_t *req, uv_msg_t *socket, void *msg, int size, uv_write_cb write_cb) {
+   uv_stream_t *stream = (uv_stream_t*) socket;
 
    if ( !req || !stream || !msg || size <= 0 ) return UV_EINVAL;
 
@@ -76,7 +77,7 @@ int uv_msg_send(uv_msg_send_t *req, uv_stream_t* stream, void *msg, int size, uv
 
 /* Message Reading ***********************************************************/
 
-int uv_stream_msg_free_buffer(uv_msg_t *uvmsg) {
+void uv_stream_msg_free_buffer(uv_msg_t *uvmsg) {
    if( uvmsg->free_cb ) uvmsg->free_cb((uv_handle_t*)uvmsg, uvmsg->buf);
    uvmsg->buf = 0;
    uvmsg->alloc_size = 0;
@@ -156,7 +157,7 @@ void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
    if (nread < 0) {
       /* Error */
       uv_stream_msg_free_buffer(uvmsg);
-      uvmsg->msg_read_cb(stream, NULL, nread);
+      uvmsg->msg_read_cb((uv_msg_t*)stream, NULL, nread);
       return;
    }
 
@@ -176,7 +177,7 @@ void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
       int entire_msg = msg_size + 4;
       UVTRACE(("msg_size: %d, entire_msg: %d\n", msg_size, entire_msg));
       if( uvmsg->filled >= entire_msg ){
-         uvmsg->msg_read_cb(stream, ptr + 4, msg_size);
+         uvmsg->msg_read_cb((uv_msg_t*)stream, ptr + 4, msg_size);
          if( uvmsg->filled > entire_msg ){
             ptr += entire_msg;
          }

@@ -12,13 +12,13 @@
 
 /****************************************************************************/
 
-void send_message(uv_stream_t* stream, char *msg, int size, uv_write_cb write_cb) {
+void send_message(uv_msg_t* socket, char *msg, int size, uv_write_cb write_cb) {
    uv_msg_send_t *req = malloc(sizeof(uv_msg_send_t));
 
    /* save the data pointer to release on completion */
    req->data = msg;
 
-   uv_msg_send(req, stream, msg, size, write_cb);
+   uv_msg_send(req, socket, msg, size, write_cb);
 }
 
 void on_msg_sent(uv_write_t *req, int status) {
@@ -47,7 +47,7 @@ void free_buffer(uv_handle_t* handle, void* ptr) {
    free(ptr);
 }
 
-void on_msg_received(uv_stream_t *client, void *msg, int size) {
+void on_msg_received(uv_msg_t *client, void *msg, int size) {
 
    if (size < 0) {
       if (size != UV_EOF) {
@@ -67,7 +67,7 @@ void on_msg_received(uv_stream_t *client, void *msg, int size) {
 }
 
 void on_connect(uv_connect_t *connect, int status) {
-   uv_stream_t* socket = connect->handle;
+   uv_msg_t* socket = (uv_msg_t*) connect->handle;
    char *msg;
 
    free(connect);
@@ -77,7 +77,7 @@ void on_connect(uv_connect_t *connect, int status) {
       return;
    }
 
-   uv_msg_read_start((uv_msg_t*) socket, alloc_buffer, on_msg_received, free_buffer);
+   uv_msg_read_start(socket, alloc_buffer, on_msg_received, free_buffer);
 
    msg = strdup("Hello World!");
    send_message(socket, msg, strlen(msg)+1, on_msg_sent);

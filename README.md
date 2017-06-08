@@ -28,7 +28,7 @@ uv_msg_init(loop, socket, UV_NAMED_PIPE);
 ### Sending Messages
 
 ```C
-uv_msg_send((uv_msg_write_t*)req, (uv_stream_t*) socket, msg, size, write_cb);
+uv_msg_send((uv_msg_write_t*)req, (uv_msg_t*) socket, msg, size, write_cb);
 ```
 
 ### Receiving Messages

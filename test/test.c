@@ -73,7 +73,7 @@ void free_buffer(uv_handle_t* handle, void* ptr) {
    free_called++;
 }
 
-void on_msg_received(uv_stream_t *client, void *msg, int size) {
+void on_msg_received(uv_msg_t *client, void *msg, int size) {
 
    printf("msg_received called. size=%d\n", size);
 
@@ -332,7 +332,7 @@ void create_test_msg(void *base, int size, char letter) {
 void test_coalesced_and_fragmented_messages() {
    int msg_size, entire_msg_size, next_chunk_size;
    int alloc_call_expected, recvd_call_expected;
-   char *pmsg, *ptr, *ptr2, *stream_buffer;
+   char *pmsg, *ptr, *stream_buffer;
 
 
    msg_size = 100;

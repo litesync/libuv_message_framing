@@ -24,7 +24,7 @@ void free_buffer(uv_handle_t* handle, void* ptr) {
    free(ptr);
 }
 
-void on_msg_received(uv_stream_t *client, void *msg, int size) {
+void on_msg_received(uv_msg_t *client, void *msg, int size) {
 
    if (size < 0) {
       if (size != UV_EOF) {
@@ -54,7 +54,7 @@ void on_msg_sent(send_message_t *req, int status) {
 }
 
 void on_connect(uv_connect_t *connect, int status) {
-   uv_stream_t* socket = connect->handle;
+   uv_msg_t* socket = (uv_msg_t*) connect->handle;
    char *msg;
 
    free(connect);
@@ -66,7 +66,7 @@ void on_connect(uv_connect_t *connect, int status) {
 
    /* we are connected! start the reading messages on this stream (asynchronously) */
 
-   uv_msg_read_start((uv_msg_t*) socket, alloc_buffer, on_msg_received, free_buffer);
+   uv_msg_read_start(socket, alloc_buffer, on_msg_received, free_buffer);
 
    /* now send some messages */
 

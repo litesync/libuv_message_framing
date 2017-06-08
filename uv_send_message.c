@@ -44,7 +44,7 @@ static void send_message_completed(uv_write_t *wreq, int status) {
    free(req);
 }
 
-int send_message(uv_stream_t* stream, char *msg, int size, uv_free_fn free_fn, send_message_cb send_cb, void *user_data) {
+int send_message(uv_msg_t *socket, char *msg, int size, uv_free_fn free_fn, send_message_cb send_cb, void *user_data) {
    send_message_t *req = malloc(sizeof(send_message_t));
 
    if (!req) return UV_ENOMEM;
@@ -68,5 +68,5 @@ int send_message(uv_stream_t* stream, char *msg, int size, uv_free_fn free_fn, s
    req->msg_send_cb = send_cb;
 
    /* send the message */
-   return uv_msg_send((uv_msg_send_t*)req, stream, msg, size, send_message_completed);
+   return uv_msg_send((uv_msg_send_t*)req, socket, msg, size, send_message_completed);
 }

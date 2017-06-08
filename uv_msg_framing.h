@@ -20,14 +20,14 @@ int uv_msg_init(uv_loop_t* loop, uv_msg_t* handle, int stream_type);
 
 typedef void (*uv_free_cb)(uv_handle_t* handle, void* ptr);
 
-typedef void (*uv_msg_read_cb)(uv_stream_t* stream, void *msg, int size);
+typedef void (*uv_msg_read_cb)(uv_msg_t* stream, void *msg, int size);
 
 
 /* Functions */
 
 int uv_msg_read_start(uv_msg_t* stream, uv_alloc_cb alloc_cb, uv_msg_read_cb msg_read_cb, uv_free_cb free_cb);
 
-int uv_msg_send(uv_msg_send_t *req, uv_stream_t* stream, void *msg, int size, uv_write_cb write_cb);
+int uv_msg_send(uv_msg_send_t* req, uv_msg_t* stream, void* msg, int size, uv_write_cb write_cb);
 
 
 /* Message Read Structure */
