@@ -141,6 +141,7 @@ void uv_stream_msg_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *s
 
 void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
    uv_msg_t *uvmsg = (uv_msg_t*) stream;
+   char *ptr;
 
    UVTRACE(("uv_stream_msg_read: received %d bytes\n", nread));
    UVTRACE(("uvmsg: %p  uvmsg->buf: %p  buf->base: %p\n", uvmsg, uvmsg->buf, buf->base));
@@ -170,7 +171,7 @@ void uv_stream_msg_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 
    UVTRACE(("alloc_size: %d, received: %d, filled: %d\n", uvmsg->alloc_size, nread, uvmsg->filled));
 
-   char *ptr = uvmsg->buf;
+   ptr = uvmsg->buf;
 
    while( uvmsg->filled >= 4 ){
       int msg_size = ntohl(*(int*)ptr);
