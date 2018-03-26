@@ -6,7 +6,7 @@ Message-based communication for libuv
 
 This code implements length-prefixed message framing on top of streams.
 
-It is expected to work with TCP, Unix domain sockets (Linux) and Named Pipes (Windows).
+It works with TCP, Unix domain sockets (Linux) and Named Pipes (Windows).
 
 
 ## Usage
