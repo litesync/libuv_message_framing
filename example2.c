@@ -1,6 +1,6 @@
 /*
-** This example code must be run with the tcp-echo-server running
-** https://github.com/nikhilm/uvbook/blob/master/code/tcp-echo-server/main.c
+** This example code must be run with the echo-server running.
+** It is in this same folder.
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,13 @@
 
 #define DEFAULT_PORT 7000
 
-void on_msg_sent(send_message_t *req, int status);
+#ifdef _WIN32
+# define PIPENAME "\\\\?\\pipe\\some.name"
+#elif defined (__android__)
+# define PIPENAME "/data/local/tmp/some.name"
+#else
+# define PIPENAME "/tmp/some.name"
+#endif
 
 /****************************************************************************/
 
@@ -22,6 +28,16 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 
 void free_buffer(uv_handle_t* handle, void* ptr) {
    free(ptr);
+}
+
+void on_msg_sent(send_message_t *req, int status) {
+
+   if ( status < 0 ) {
+      printf("message send failed: %s   user_data: %d\n", (char*)req->msg, (int)req->data);
+   } else {
+      printf("message sent: %s   user_data: %d\n", (char*)req->msg, (int)req->data);
+   }
+
 }
 
 void on_msg_received(uv_msg_t *client, void *msg, int size) {
@@ -39,16 +55,6 @@ void on_msg_received(uv_msg_t *client, void *msg, int size) {
    if (strcmp(msg, "Is it working?") == 0) {
       char *response = "Yeaaah!";
       send_message(client, response, strlen(response)+1, UV_MSG_STATIC, on_msg_sent, 0);
-   }
-
-}
-
-void on_msg_sent(send_message_t *req, int status) {
-
-   if ( status < 0 ) {
-      printf("message send failed: %s   user_data: %d\n", (char*)req->msg, (int)req->data);
-   } else {
-      printf("message sent: %s   user_data: %d\n", (char*)req->msg, (int)req->data);
    }
 
 }
@@ -93,6 +99,23 @@ void on_connect(uv_connect_t *connect, int status) {
 
 }
 
+#ifdef USE_PIPE_EXAMPLE
+
+int main() {
+   int rc;
+   uv_loop_t *loop = uv_default_loop();
+
+   uv_msg_t* socket = malloc(sizeof(uv_msg_t));
+   rc = uv_msg_init(loop, socket, UV_NAMED_PIPE);
+
+   uv_connect_t* connect = malloc(sizeof(uv_connect_t));
+   uv_pipe_connect(connect, (uv_pipe_t*)socket, PIPENAME, on_connect);
+
+   return uv_run(loop, UV_RUN_DEFAULT);
+}
+
+#else
+
 int main() {
    int rc;
    uv_loop_t *loop = uv_default_loop();
@@ -112,3 +135,5 @@ int main() {
 
    return uv_run(loop, UV_RUN_DEFAULT);
 }
+
+#endif

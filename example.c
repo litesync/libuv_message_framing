@@ -1,6 +1,6 @@
 /*
-** This example code must be run with the tcp-echo-server running
-** https://github.com/nikhilm/uvbook/blob/master/code/tcp-echo-server/main.c
+** This example code must be run with the echo-server running.
+** It is in this same folder.
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +9,14 @@
 #include "uv_msg_framing.c"
 
 #define DEFAULT_PORT 7000
+
+#ifdef _WIN32
+# define PIPENAME "\\\\?\\pipe\\some.name"
+#elif defined (__android__)
+# define PIPENAME "/data/local/tmp/some.name"
+#else
+# define PIPENAME "/tmp/some.name"
+#endif
 
 /****************************************************************************/
 
@@ -87,6 +95,23 @@ void on_connect(uv_connect_t *connect, int status) {
 
 }
 
+#ifdef USE_PIPE_EXAMPLE
+
+int main() {
+   int rc;
+   uv_loop_t *loop = uv_default_loop();
+
+   uv_msg_t* socket = malloc(sizeof(uv_msg_t));
+   rc = uv_msg_init(loop, socket, UV_NAMED_PIPE);
+
+   uv_connect_t* connect = malloc(sizeof(uv_connect_t));
+   uv_pipe_connect(connect, (uv_pipe_t*)socket, PIPENAME, on_connect);
+
+   return uv_run(loop, UV_RUN_DEFAULT);
+}
+
+#else
+
 int main() {
    int rc;
    uv_loop_t *loop = uv_default_loop();
@@ -106,3 +131,5 @@ int main() {
 
    return uv_run(loop, UV_RUN_DEFAULT);
 }
+
+#endif
