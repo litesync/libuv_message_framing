@@ -110,11 +110,39 @@ send_message(socket, msg, strlen(msg)+1, free, on_msg_sent, extra_data);
 
 ### On Linux
 
-gcc example.c -luv
+Using TCP:
+
+```
+gcc echo-server.c -o echo-server -luv
+gcc example.c -o example -luv
+gcc example2.c -o example2 -luv
+```
+
+Using unix domain sockets:
+
+```
+gcc echo-server.c -o echo-server -luv -DUSE_PIPE_EXAMPLE
+gcc example.c -o example -luv -DUSE_PIPE_EXAMPLE
+gcc example2.c -o example2 -luv -DUSE_PIPE_EXAMPLE
+```
 
 ### On Windows
 
-gcc example.c -llibuv -lws2_32
+Using TCP:
+
+```
+gcc echo-server.c -o echo-server -llibuv -lws2_32
+gcc example.c -o example -llibuv -lws2_32
+gcc example2.c -o example2 -llibuv -lws2_32
+```
+
+Using named pipes:
+
+```
+gcc echo-server.c -o echo-server -llibuv -lws2_32 -DUSE_PIPE_EXAMPLE
+gcc example.c -o example -llibuv -lws2_32 -DUSE_PIPE_EXAMPLE
+gcc example2.c -o example2 -llibuv -lws2_32 -DUSE_PIPE_EXAMPLE
+```
 
 
 ## Testing
