@@ -163,6 +163,16 @@ gcc example2.c -o example2 -llibuv -lws2_32 -DUSE_PIPE_EXAMPLE
     test
 
 
+## Compatibility
+
+This code is compatible with implementations in other languages that encode the length in big endian.
+
+Some examples:
+
+* Node.js [frame-stream](https://github.com/davedoesdev/frame-stream)
+* Python [struct](https://gist.github.com/kroggen/70fba39c6198391195bcbcc22c2dcd94)
+
+
 ## TO DO
 
  * (maybe) use `uv_buf_t bufs[]` instead of `void *msg` on uv_msg_send()
